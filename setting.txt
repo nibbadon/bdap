@@ -1,0 +1,126 @@
+spark-shell
+
+
+import org.apache.spark.graphx._
+import org.apache.spark.graphx.lib._
+import org.apache.spark.rdd.RDD
+
+val verArray = Array(
+  (1L, ("Mumbai", 12442373)),
+  (2L, ("Delhi", 11034555)),
+  (3L, ("Bangalore", 8443675)),
+  (4L, ("Hyderabad", 6993262))
+)
+
+
+val edgeArray = Array(
+  Edge(1L, 2L, 1394),
+  Edge(1L, 3L, 837),
+  Edge(1L, 4L, 623),
+  Edge(2L, 3L, 1741),
+  Edge(2L, 4L, 1259),
+  Edge(3L, 4L, 997)
+)
+
+val verRDD = sc.parallelize(verArray)
+
+val edgeRDD = sc.parallelize(edgeArray)
+
+val graph = Graph(verRDD, edgeRDD)
+
+
+graph.numVertices
+
+graph.numEdges
+
+graph.inDegrees.collect()
+
+
+graph.outDegrees.collect()
+
+graph.degrees.collect()
+
+graph.vertices.collect.foreach(println)
+
+graph.edges.collect.foreach(println)
+
+
+val triplets = graph.triplets.collect()
+
+triplets.foreach(println)
+
+
+
+graph.vertices.filter{case (id, (city,population)) => population > 8000000 }.collect()
+
+graph.edges.filter{case Edge (city1, city2, distance) => distance < 700 }.collect()
+
+
+
+val ranks = PageRank.run(graph, numIter = 10).vertices
+
+
+val rankByCity = verRDD.join(ranks).map{case (id, ((city, population), rank)) => (city, rank)}
+
+rankByCity.collect.foreach{ case (city, rank) => println(s"City : $city, Pagerank : $rank")}
+
+
+
+
+
+
+
+wget --no-check-certificate https://archive.apache.org/dist/kafka/0.8.2.2/kafka_2.10-0.8.2.2.tgz
+tar -xzf kafka_2.10-0.8.2.2.tgz
+
+cd kafka_2.10-0.8.2.2
+
+bin/zookeeper-server-start.sh config/zookeeper.properties
+
+second terminal :
+bin/kafka-server-start.sh config/server.properties
+
+third terminal : (if test-topic is present, then change name)
+bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 -topic test-topic
+
+bin/kafka-topics.sh --list --zookeeper localhost:2181
+
+bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic test-topic --from-beginning | nc -lk 9999
+
+
+Fourth terminal : (if test-topic is present, then change name)
+
+gedit spark_socket_consumer.py
+
+from pyspark import SparkConf, SparkContext
+from pyspark.streaming import StreamingContext
+
+conf = SparkConf().setAppName("SocketKafkaForwardConsumer").setMaster("local[2]")
+sc = SparkContext(conf=conf)
+ssc = StreamingContext(sc, 5)  # 5-second batch interval
+
+lines = ssc.socketTextStream("localhost", 9999)
+
+def process(rdd):
+    count = rdd.count()
+    if count > 0:
+        print("Received {} records in this batch",count)
+        for i, record in enumerate(rdd.take(10), start=1):
+            print(i, record)
+    else:
+        print("No records in this batch")
+lines.foreachRDD(process)
+
+ssc.start()
+ssc.awaitTermination()
+
+
+
+spark-submit --master local[2] spark_socket_consumer.py
+
+
+
+Terminal 5 :
+
+bin/kafka-console-producer.sh --broker-list localhost:9092 --topic test-topic
+
