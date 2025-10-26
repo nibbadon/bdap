@@ -1,3 +1,6 @@
+sudo mkdir /mnt/shared
+sudo mount -t vboxsf bdp /mnt/shared
+
 spark-shell
 
 
@@ -123,4 +126,5 @@ spark-submit --master local[2] spark_socket_consumer.py
 Terminal 5 :
 
 bin/kafka-console-producer.sh --broker-list localhost:9092 --topic test-topic
+
 
